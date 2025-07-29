@@ -106,61 +106,13 @@ class EMGEncoder(nn.Module):
     def forward(self, x):  # [B, C, L]
         out = self.encoder(x)
         return out.squeeze(-1)
-    
-class EMGEncoderWithResidual(nn.Module):
-    def __init__(self, in_channels=3, hidden_channels=32, kernel_size=5, dropout=0.2):
-        super().__init__()
-
-        self.conv1 = nn.Sequential(
-            nn.Conv1d(in_channels, hidden_channels, kernel_size, padding=kernel_size // 2),
-            nn.BatchNorm1d(hidden_channels),
-            nn.ReLU(),
-            nn.Dropout(dropout)
-        )
-
-        self.conv2 = nn.Sequential(
-            nn.Conv1d(hidden_channels, hidden_channels, kernel_size, padding=kernel_size // 2),
-            nn.BatchNorm1d(hidden_channels),
-            nn.ReLU(),
-            nn.Dropout(dropout)
-        )
-
-        self.residual = nn.Conv1d(in_channels, hidden_channels, kernel_size=1) \
-            if in_channels != hidden_channels else nn.Identity()
-
-        self.out_dim = hidden_channels
-
-    def forward(self, x):
-        # x: [batch, in_channels, 200]
-        residual = self.residual(x)                  # shape: [batch, hidden_channels, 200]
-        x = self.conv1(x)                            # shape: [batch, hidden_channels, 200]
-        x = self.conv2(x) + residual                 # residual connection
-        return x                                     # → [batch, hidden_channels, 200]
-
-class TorqueRegressor(nn.Module):
-    def __init__(self, encoder_hidden=32):
-        super().__init__()
-        self.encoder = EMGEncoderWithResidual(in_channels=3, hidden_channels=encoder_hidden)
-        feat = self.encoder.out_dim
-
-        self.head = nn.Sequential(
-            nn.AdaptiveAvgPool1d(1),
-            # nn.Flatten(),
-            # nn.Linear(feat, 64),
-            # nn.ReLU(),
-            # nn.Linear(64, 1)
-        )
-
-    def forward(self, x):
-        z = self.encoder(x)
-        return self.head(z).squeeze(-1)  # [batch]
 
 
 class MomentModel(nn.Module):
     def __init__(self):
         super().__init__()
         self.imu_encoder = TemporalConvNet(18, [64,64,64,64,64], kernel_size=4, dropout=0.2)
-        self.emg_encoder = EMGTDSRegressor(emg_channels=3, n_fft=32, tds_blocks=2, tds_width=8, tds_kernel=5)
+        self.emg_encoder = EMGEncoder()
         self.head = nn.Sequential(
             nn.Linear(64, 16),
             nn.ReLU(),
@@ -183,8 +135,8 @@ class MomentModel(nn.Module):
         fused = torch.cat([last_output, emg_feat], dim=1)
         return self.head(fused).squeeze(1)
 
-df = pd.read_csv('Estimation_dataset_new.csv')
-df_loso = pd.read_csv('Estimation_LOSO_new.csv')
+df = pd.read_csv('Estimation_dataset.csv')
+df_loso = pd.read_csv('Estimation_LOSO.csv')
 
 dataset = MomentDataset(df)
 loso_dataset = MomentDataset(df_loso,dataset.imu_mean,dataset.imu_std,dataset.emg_mean,dataset.emg_std)
@@ -240,5 +192,5 @@ for epoch in range(args.n_epochs):
     targets = np.concatenate(targets)
     rmse = np.sqrt(mean_squared_error(targets, preds))
     print(f"Epoch {epoch+1} | lr: {optimizer.param_groups[0]['lr']} | Train Loss: {total_loss:.4f} | Val Loss: {val_loss:.4f} | RMSE: {rmse:.4f}")
-    with open("result.txt", "a") as f:
+    with open("torque_result.txt", "a") as f:
         f.write(f"Epoch {epoch+1} | lr: {optimizer.param_groups[0]['lr']} | Train Loss: {total_loss:.4f} | Val Loss: {val_loss:.4f} | RMSE: {rmse:.4f}\n")
