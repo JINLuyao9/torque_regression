@@ -114,9 +114,9 @@ class MomentModel(nn.Module):
         self.imu_encoder = TemporalConvNet(18, [64,64,64,64,64], kernel_size=4, dropout=0.2)
         self.emg_encoder = EMGEncoder()
         self.head = nn.Sequential(
-            nn.Linear(64, 16),
+            nn.Linear(128, 64),
             nn.ReLU(),
-            nn.Linear(16, 1)
+            nn.Linear(64, 1)
         )
         self.init_weights()
         self.imu_avg = nn.AdaptiveAvgPool1d(1)
