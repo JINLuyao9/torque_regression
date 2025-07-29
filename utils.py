@@ -1,6 +1,12 @@
 import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR
+import math
+
+def get_named_trainable_params(model):
+    return [
+        (name, param) for name, param in model.named_parameters() if param.requires_grad
+    ]
 
 def setup_optimizer(optim_cfg, model):
     """

@@ -135,8 +135,8 @@ class MomentModel(nn.Module):
         fused = torch.cat([last_output, emg_feat], dim=1)
         return self.head(fused).squeeze(1)
 
-df = pd.read_csv('Estimation_dataset.csv')
-df_loso = pd.read_csv('Estimation_LOSO.csv')
+df = pd.read_csv('Estimation_dataset_new.csv')
+df_loso = pd.read_csv('Estimation_LOSO_new.csv')
 
 dataset = MomentDataset(df)
 loso_dataset = MomentDataset(df_loso,dataset.imu_mean,dataset.imu_std,dataset.emg_mean,dataset.emg_std)
